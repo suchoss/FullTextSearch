@@ -6,7 +6,7 @@ namespace FullTextSearch
     public interface ITokenizer
     {
         string[] Tokenize(string text);
-    } 
+    }
 
     public class Tokenizer : ITokenizer
     {
@@ -19,14 +19,15 @@ namespace FullTextSearch
             _tokenizePipeline = tokenizePipeline;
         }
 
+        static char[] defaultSplitChars = " ,.?!:;\t-_/~".ToCharArray();
+        static char[] allowedTokenizerChars = " ,.?!:;\t-_/~♥️💔".ToCharArray();
         public static Tokenizer DefaultTokenizer()
         {
-            char[] defaultSplitChars = " ,.?!:;\t".ToCharArray();
             var defaultPipeline = new List<Func<string, string>>()
             {
                 x => x.ToLowerInvariant(),
                 StringExtensions.RemoveAccents,
-                x => x.ToAlphaNumeric(defaultSplitChars)
+                x => x.ToAlphaNumeric(allowedTokenizerChars)
             };
 
             return new Tokenizer(defaultSplitChars, defaultPipeline);
@@ -34,6 +35,9 @@ namespace FullTextSearch
 
         public string[] Tokenize(string text)
         {
+            if (string.IsNullOrWhiteSpace(text))
+                return Array.Empty<string>();
+
             foreach (var fn in _tokenizePipeline)
             {
                 text = fn(text);
