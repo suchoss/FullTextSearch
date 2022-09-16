@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Whisperer;
 
@@ -36,10 +37,81 @@ public class AddressesTests : IClassFixture<IndexFixture>
             
             foreach (var subQuery in querySplit)
             {
-                Assert.Contains(subQuery, item.Adresa, StringComparison.InvariantCultureIgnoreCase);
-                
+                Assert.Contains(subQuery.RemoveAccents(), item.Adresa.RemoveAccents(), StringComparison.InvariantCultureIgnoreCase);
             }
         });
+    }
+    
+    [Theory]
+    [InlineData("p")]
+    [InlineData("běl par")]
+    [InlineData("i p")]
+    [InlineData("dlo PRA")]
+    [InlineData("jar jar")]
+    [InlineData("jar! jar")]
+    [InlineData("jar. jar")]
+    [InlineData("jar,jar")]
+    [InlineData("jar;jar")]
+    [InlineData("aš")]
+    [InlineData("kar var")]
+    [InlineData("pra vi chor")]
+    public void Test_Speed(string query)
+    {
+        _ = _indexFixture.Index.Search("a");  // warm up
+        Stopwatch sw = new Stopwatch();
+        sw.Start();
+        var addresses = _indexFixture.Index.Search(query).ToArray();
+        sw.Stop();
+        
+        Assert.True(sw.ElapsedMilliseconds < 100, "Search took longer than 100 ms.");
+
+    }
+    
+    [Theory]
+    [InlineData("p")]
+    [InlineData("běl par")]
+    [InlineData("i p")]
+    [InlineData("dlo PRA")]
+    [InlineData("jar jar")]
+    [InlineData("jar! jar")]
+    [InlineData("jar. jar")]
+    [InlineData("jar,jar")]
+    [InlineData("jar;jar")]
+    [InlineData("aš")]
+    [InlineData("kar var")]
+    [InlineData("pra vi chor")]
+    public void Test_SpeedWithFilter_0(string query)
+    {
+        _ = _indexFixture.Index.Search("a");  // warm up
+        Stopwatch sw = new Stopwatch();
+        sw.Start();
+        var addresses = _indexFixture.Index.Search(query, filter: _indexFixture.FilterVals[0]).ToArray();
+        sw.Stop();
+        Assert.True(sw.ElapsedMilliseconds < 100, "Search took longer than 100 ms.");
+
+    }
+    
+    [Theory]
+    [InlineData("p")]
+    [InlineData("běl par")]
+    [InlineData("i p")]
+    [InlineData("dlo PRA")]
+    [InlineData("jar jar")]
+    [InlineData("jar! jar")]
+    [InlineData("jar. jar")]
+    [InlineData("jar,jar")]
+    [InlineData("jar;jar")]
+    [InlineData("aš")]
+    [InlineData("kar var")]
+    [InlineData("pra vi chor")]
+    public void Test_SpeedWithFilter_1(string query)
+    {
+        _ = _indexFixture.Index.Search("a");  // warm up
+        Stopwatch sw = new Stopwatch();
+        sw.Start();
+        var addresses = _indexFixture.Index.Search(query, filter: _indexFixture.FilterVals[1]).ToArray();
+        sw.Stop();
+        Assert.True(sw.ElapsedMilliseconds < 100, "Search took longer than 100 ms.");
     }
 
     [Fact]
@@ -64,7 +136,7 @@ public class AddressesTests : IClassFixture<IndexFixture>
                 {
                     foreach (var subQuery in querySplit)
                     {
-                        Assert.Contains(subQuery, item.Adresa, StringComparison.InvariantCultureIgnoreCase);
+                        Assert.Contains(subQuery.RemoveAccents(), item.Adresa.RemoveAccents(), StringComparison.InvariantCultureIgnoreCase);
                 
                     }
                 });
@@ -88,6 +160,7 @@ public class AddressesTests : IClassFixture<IndexFixture>
 public class IndexFixture : IDisposable
 {
     public Index<Addr> Index { get; private set; }
+    public string[] FilterVals { get; } = new[] { "sude", "liche" };
 
     public IndexFixture()
     {
@@ -96,7 +169,10 @@ public class IndexFixture : IDisposable
         var file = File.ReadAllBytes(@"./adresy.brotli");
         var decompressed = BrotliCompression.Decompress(file);
         var deserialized = JsonSerializer.Deserialize<IEnumerable<Addr>>(decompressed);
-        Index.AddDocuments(deserialized, addr => addr.Adresa);
+        Index.AddDocuments(deserialized, 
+            addr => addr.Adresa,
+            addr => addr.Adresa.Contains("praha", StringComparison.InvariantCultureIgnoreCase) ? 2f : 1f, //boost prahy
+            addr => FilterVals[addr.Id % 2]);
     }
 
     public void Dispose()
