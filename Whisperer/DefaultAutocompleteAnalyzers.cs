@@ -1,4 +1,5 @@
-﻿using Lucene.Net.Analysis;
+﻿using System.IO;
+using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.Core;
 using Lucene.Net.Analysis.Miscellaneous;
 using Lucene.Net.Analysis.NGram;
